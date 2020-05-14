@@ -21,14 +21,17 @@ namespace SysBot.Pokemon
         [Category(FeatureToggle), Description("When set, the bot will roll species and set date to 2000, resetting it once it reaches 2060.")]
         public bool AutoRoll { get; set; } = false;
 
-        [Category(FeatureToggle), Description("When set, the bot will remove and add 5 friends every 3 hosts. Use either this or Add.")]
-        public bool FriendCombined { get; set; } = false;
+        [Category(FeatureToggle), Description("Specify the amount of friends to remove and add. Use either this or FriendAdd.")]
+        public int FriendCombined { get; set; } = 0;
 
-        [Category(FeatureToggle), Description("When set, the bot will add 5 friends every 3 hosts. Use either this or Combined.")]
-        public bool FriendAdd { get; set; } = false;
+        [Category(FeatureToggle), Description("Specify the amount of friends to add. Use either this or Combined.")]
+        public int FriendAdd { get; set; } = 0;
 
-        [Category(Hosting), Description("Amount of friends to purge. Default is 0, will be reset back to default after a purge.")]
+        [Category(Hosting), Description("Specify the amount of friends to purge. Will reset itself back to zero after the purge.")]
         public int FriendPurge { get; set; } = 0;
+
+        [Category(Hosting), Description("After how many raid hosts should we be adding or removing friends. Non-zero, positive value.")]
+        public int FriendInterval { get; set; } = 1;
 
         [Category(Hosting), Description("Minimum amount of seconds to wait before starting a raid. Ranges from 0 to 180 seconds.")]
         public int MinTimeToWait { get; set; } = 90;

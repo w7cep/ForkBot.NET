@@ -15,12 +15,7 @@ namespace SysBot.Pokemon
         private readonly RaidSettings Settings;
         public readonly IDumper Dump;
         private readonly bool ldn;
-        private readonly bool RaidLog;
-        private readonly string FriendCode;
         private readonly bool Roll;
-        private readonly bool FRBoth;
-        private readonly bool FRAdd;
-        private int FriendRemoveCount;
 
         public RaidBot(PokeBotConfig cfg, PokeTradeHub<PK8> hub) : base(cfg)
         {
@@ -29,12 +24,7 @@ namespace SysBot.Pokemon
             Dump = hub.Config.Folder;
             Counts = hub.Counts;
             ldn = Settings.UseLdnMitm;
-            RaidLog = Settings.RaidLog;
-            FriendCode = Settings.FriendCode;
             Roll = Settings.AutoRoll;
-            FRBoth = Settings.FriendCombined;
-            FRAdd = Settings.FriendAdd;
-            FriendRemoveCount = Settings.FriendPurge;
         }
 
         private int encounterCount;
@@ -56,6 +46,12 @@ namespace SysBot.Pokemon
                 return;
             }
 
+            if ((Hub.Config.Raid.FriendAdd | Hub.Config.Raid.FriendCombined | Hub.Config.Raid.FriendPurge) < 0 || Hub.Config.Raid.FriendInterval < 1)
+            {
+                Log("Cannot add or remove a negative amount of friends every negative or infinite amount of raids.");
+                return;
+            }
+
             while (!token.IsCancellationRequested && Config.NextRoutineType == PokeRoutineType.RaidBot)
             {
                 Config.IterateNextRoutine();
@@ -73,31 +69,30 @@ namespace SysBot.Pokemon
 
         private async Task<bool> HostRaidAsync(SAV8SWSH sav, int code, CancellationToken token)
         {
-            if (Roll || (Roll && FRBoth) || (Roll && FRAdd))
+            if (Roll)
             {
                 Log("Initializing the rolling auto-host routine.");
                 await AutoRollDen(token).ConfigureAwait(false);
             }            
-            else if (!Roll && (FRBoth || FRAdd) && (encounterCount > 0 && encounterCount % 3 == 0))
+            else if (!Roll && (Hub.Config.Raid.FriendCombined > 0 || Hub.Config.Raid.FriendAdd > 0) && (encounterCount > 0 && encounterCount % Hub.Config.Raid.FriendInterval == 0))
             {
-                if ((FRBoth == FRAdd) == true)
+                if ((Hub.Config.Raid.FriendCombined & Hub.Config.Raid.FriendAdd) > 0)
                 {
                     Log("Enable one or the other, not both. Running FriendAdd instead.");
-                    Settings.FriendCombined = false;
-                    await FriendAdd(token).ConfigureAwait(false);
+                    Hub.Config.Raid.FriendCombined = 0;
                 }
                 
-                if (FRBoth && !FRAdd)
+                if (Hub.Config.Raid.FriendCombined > 0 && Hub.Config.Raid.FriendAdd == 0)
                 {
                     await FRAddRemove(token).ConfigureAwait(false);
                 }
                 
-                if (FRAdd && !FRBoth)
+                if (Hub.Config.Raid.FriendAdd > 0 && Hub.Config.Raid.FriendCombined == 0)
                 {
                     await FriendAdd(token).ConfigureAwait(false);
                 }
             }           
-            else if (!Roll && FriendRemoveCount != 0)
+            else if (!Roll && Hub.Config.Raid.FriendPurge > 0)
             {
                 await FriendRemove(token).ConfigureAwait(false);
             }
@@ -114,10 +109,10 @@ namespace SysBot.Pokemon
                 await Click(PLUS, 1_000, token).ConfigureAwait(false);
                 await EnterTradeCode(code, token).ConfigureAwait(false);
 
-                if (RaidLog == true)
+                if (Hub.Config.Raid.RaidLog)
                 {
                     RaidLogCount++;
-                    System.IO.File.WriteAllText("RaidCode.txt", $"Raid #{RaidLogCount}\n{FriendCode}\nHosting raid as: {sav.OT}\nRaid code is: {code}\n------------------------");
+                    System.IO.File.WriteAllText("RaidCode.txt", $"Raid #{RaidLogCount}\n{Hub.Config.Raid.FriendCode}\nHosting raid as: {sav.OT}\nRaid code is: {code}\n------------------------");
                 }
                 EchoUtil.Echo($"Raid code is {code}.");
 
@@ -126,7 +121,7 @@ namespace SysBot.Pokemon
                 await Click(A, 1_000, token).ConfigureAwait(false);
             }
 
-            if (code < 0 && RaidLog == true)
+            if (code < 0 && Hub.Config.Raid.RaidLog)
             {
                 RaidLogCount++;
                 System.IO.File.WriteAllText("RaidCode.txt", $"Raid #{RaidLogCount}{Environment.NewLine}\nHosting raid as: {sav.OT}\nRaid is Free For All\n------------------------");
@@ -219,7 +214,7 @@ namespace SysBot.Pokemon
             }
 
             Log("Back in the overworld!");
-            if (Roll || FRAdd || FRBoth)
+            if (Roll || Hub.Config.Raid.FriendAdd > 0 || Hub.Config.Raid.FriendCombined > 0)
                 return;
 
             // Reconnect to Y-Comm.
@@ -282,7 +277,7 @@ namespace SysBot.Pokemon
             {
                 if (ResetCount == 0 || ResetCount >= 58)
                 {
-                    if (FriendRemoveCount != 0)
+                    if (Hub.Config.Raid.FriendPurge > 0)
                         await FriendRemove(token).ConfigureAwait(false);
 
                     await Click(B, 100, token).ConfigureAwait(false);
@@ -291,25 +286,22 @@ namespace SysBot.Pokemon
                     day = 0;
                 }
 
-                if ((FriendTime > 0 && FriendTime % 3 == 0) && (FRBoth || FRAdd))
+                if ((FriendTime > 0 && FriendTime % Hub.Config.Raid.FriendInterval == 0) && (Hub.Config.Raid.FriendCombined > 0 || Hub.Config.Raid.FriendAdd > 0))
                 {
-                    if ((FRBoth == FRAdd) == true)
+                    if ((Hub.Config.Raid.FriendCombined & Hub.Config.Raid.FriendAdd) > 0)
                     {
                         Log("Enable one or the other, not both. Running FriendAdd instead.");
-                        Settings.FriendCombined = false;
-                        day = 0;
-                        await FriendAdd(token).ConfigureAwait(false);
-                        FriendTime = 0;
+                        Hub.Config.Raid.FriendCombined = 0;
                     }
                     
-                    if (FRBoth)
+                    if (Hub.Config.Raid.FriendCombined > 0)
                     {
                         day = 0;
                         await FRAddRemove(token).ConfigureAwait(false);
                         FriendTime = 0;
                     }
 
-                    if (FRAdd)
+                    if (Hub.Config.Raid.FriendAdd > 0)
                     {
                         day = 0;
                         await FriendAdd(token).ConfigureAwait(false);
@@ -429,7 +421,7 @@ namespace SysBot.Pokemon
             await SetStick(SwitchStick.LEFT, 0, -30000, 10000, token).ConfigureAwait(false);
             await SetStick(SwitchStick.LEFT, 0, 0, 100, token).ConfigureAwait(false); //Navigate to the bottom of the list
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < Hub.Config.Raid.FriendCombined; i++)
             {
                 await Click(A, 2000, token).ConfigureAwait(false);
                 await Click(DDOWN, 750, token).ConfigureAwait(false);
@@ -445,7 +437,7 @@ namespace SysBot.Pokemon
             await Click(A, 250, token).ConfigureAwait(false);
             await Click(A, 2000, token).ConfigureAwait(false); //Navigate to add friends
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < Hub.Config.Raid.FriendCombined; i++)
             {
                 await Click(A, 2000, token).ConfigureAwait(false);
                 await Click(A, 6000, token).ConfigureAwait(false);
@@ -455,7 +447,11 @@ namespace SysBot.Pokemon
             await Click(HOME, 1000, token).ConfigureAwait(false);
             await Click(HOME, 1500, token).ConfigureAwait(false); //Return to game
 
-            Log("Removed and added 5 friends.");
+            if (Hub.Config.Raid.FriendCombined > 1)
+                Log($"Removed and added {Hub.Config.Raid.FriendCombined} friends.");
+
+            if (Hub.Config.Raid.FriendCombined == 1)
+                Log($"Removed and added {Hub.Config.Raid.FriendCombined} friend.");
             await Task.Delay(1000, token).ConfigureAwait(false);
         }
 
@@ -476,7 +472,7 @@ namespace SysBot.Pokemon
             await SetStick(SwitchStick.LEFT, 0, -30000, 10000, token).ConfigureAwait(false);
             await SetStick(SwitchStick.LEFT, 0, 0, 100, token).ConfigureAwait(false); //Navigate to the bottom of the list
 
-            for (int i = 0; i < FriendRemoveCount; i++)
+            for (int i = 0; i < Hub.Config.Raid.FriendPurge; i++)
             {
                 await Click(A, 2000, token).ConfigureAwait(false);
                 await Click(DDOWN, 750, token).ConfigureAwait(false);
@@ -489,13 +485,13 @@ namespace SysBot.Pokemon
             await Click(HOME, 1000, token).ConfigureAwait(false);
             await Click(HOME, 1500, token).ConfigureAwait(false); //Return to game
 
-            if (FriendRemoveCount > 1)
-                Log($"Purge complete. Removed {FriendRemoveCount} friends.");
+            if (Hub.Config.Raid.FriendPurge > 1)
+                Log($"Purge complete. Removed {Hub.Config.Raid.FriendPurge} friends.");
 
-            if (FriendRemoveCount == 1)
-                Log($"Purge complete. Removed {FriendRemoveCount} friend.");
+            if (Hub.Config.Raid.FriendPurge == 1)
+                Log($"Purge complete. Removed {Hub.Config.Raid.FriendPurge} friend.");
 
-            FriendRemoveCount = 0;
+            Hub.Config.Raid.FriendPurge = 0;
             await Task.Delay(1000, token).ConfigureAwait(false);
         }
 
@@ -510,7 +506,7 @@ namespace SysBot.Pokemon
             await SetStick(SwitchStick.LEFT, 0, 0, 250, token).ConfigureAwait(false);
             await Click(DUP, 250, token).ConfigureAwait(false);
             await Click(A, 1000, token).ConfigureAwait(false); //Navigate to "Add Friend"
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < Hub.Config.Raid.FriendAdd; i++)
             {
                 await Click(A, 2000, token).ConfigureAwait(false);
                 await Click(A, 6000, token).ConfigureAwait(false);
@@ -521,7 +517,12 @@ namespace SysBot.Pokemon
             await Click(HOME, 1500, token).ConfigureAwait(false); //Return to game
             await Task.Delay(1000, token).ConfigureAwait(false);
 
-            Log("Added some friends.");
+            if (Hub.Config.Raid.FriendAdd > 1)
+                Log($"Friend add complete. Added {Hub.Config.Raid.FriendAdd} friends.");
+
+            if (Hub.Config.Raid.FriendAdd == 1)
+                Log($"Friend add complete. Added {Hub.Config.Raid.FriendAdd} friend.");
+            await Task.Delay(1000, token).ConfigureAwait(false);
         }
     }
 }
