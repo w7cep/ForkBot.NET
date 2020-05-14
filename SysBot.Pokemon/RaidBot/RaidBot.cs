@@ -39,7 +39,6 @@ namespace SysBot.Pokemon
 
             Log("Starting main RaidBot loop.");
 
-
             if (Hub.Config.Raid.MinTimeToWait < 0 || Hub.Config.Raid.MinTimeToWait > 180)
             {
                 Log("Time to wait must be between 0 and 180 seconds.");
@@ -102,7 +101,7 @@ namespace SysBot.Pokemon
 
             // Press A and stall out a bit for the loading
             await Click(A, 5_000, token).ConfigureAwait(false);
-            
+
             if (code >= 0)
             {
                 // Set Link code
