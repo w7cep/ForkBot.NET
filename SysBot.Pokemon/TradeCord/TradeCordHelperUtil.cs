@@ -578,6 +578,7 @@ namespace SysBot.Pokemon
             }
 
             bool applyMoves = false;
+            var sav = new SimpleTrainerInfo() { OT = pk.OT_Name, Gender = pk.OT_Gender, Generation = pk.Version, Language = pk.Language, SID = pk.TrainerSID7, TID = pk.TrainerID7 };
             if (pk.Generation == 8 && ((pk.Species == (int)Species.Koffing && result.EvolvedForm == 0) || ((pk.Species == (int)Species.Exeggcute || pk.Species == (int)Species.Pikachu || pk.Species == (int)Species.Cubone) && result.EvolvedForm > 0)))
             {
                 applyMoves = true;
@@ -586,7 +587,7 @@ namespace SysBot.Pokemon
                 pk.Met_Location = 78; // Paniola Ranch
                 pk.Met_Level = 1;
                 pk.SetEggMetData(GameVersion.UM, (GameVersion)version);
-                var sav = new SimpleTrainerInfo() { OT = pk.OT_Name, Gender = pk.OT_Gender, Generation = version, Language = pk.Language, SID = pk.TrainerSID7, TID = pk.TrainerID7 };
+                sav.Generation = version;
                 pk.SetHandlerandMemory(sav);
                 if (pk is PK8 pk8)
                 {
@@ -597,11 +598,7 @@ namespace SysBot.Pokemon
                 if (pk.Ball == (int)Ball.Sport || (pk.WasEgg && pk.Ball == (int)Ball.Master))
                     pk.SetSuggestedBall(true);
             }
-            else if (pk.Generation < 8)
-            {
-                var sav = new SimpleTrainerInfo() { OT = pk.OT_Name, Gender = pk.OT_Gender, Generation = pk.Version, Language = pk.Language, SID = pk.TrainerSID7, TID = pk.TrainerID7 };
-                pk.SetHandlerandMemory(sav);
-            }
+            else pk.SetHandlerandMemory(sav);
 
             var index = pk.PersonalInfo.GetAbilityIndex(pk.Ability);
             pk.Species = result.EvolvesInto;
@@ -763,27 +760,21 @@ namespace SysBot.Pokemon
             List<EvoCriteria> criteriaList = new();
             for (int i = 0; i < list.Count; i++)
             {
-                list[i].Form = list[i].Species switch
-                {
-                    (int)Species.Sinistea or (int)Species.Polteageist or (int)Species.Rotom or (int)Species.Pikachu or (int)Species.Raichu or (int)Species.Marowak or (int)Species.Exeggutor or (int)Species.Weezing or (int)Species.Alcremie => 0,
-                    _ => list[i].Form,
-                };
-
                 int form = list[i].Species switch
                 {
                     (int)Species.Obstagoon or (int)Species.Cursola or (int)Species.Runerigus or (int)Species.Sirfetchd => 1,
                     (int)Species.Perrserker => 2,
-                    (int)Species.Lycanroc when list[i].Form == 2 => 1,
+                    (int)Species.Lycanroc or (int)Species.Slowbro or (int)Species.Darmanitan when list[i].Form == 2 => 1,
                     (int)Species.Lycanroc when list[i].Form == 1 => 0,
-                    (int)Species.Slowbro when list[i].Form == 2 => 1,
-                    _ => -1,
+                    (int)Species.Sinistea or (int)Species.Polteageist or (int)Species.Rotom or (int)Species.Pikachu or (int)Species.Raichu or (int)Species.Marowak or (int)Species.Exeggutor or (int)Species.Weezing or (int)Species.Alcremie => 0,
+                    _ => list[i].Form,
                 };
 
                 EvoCriteria? evo = default;
                 var preEvos = EvolutionTree.GetEvolutionTree(8).GetValidPreEvolutions(list[i], 100, 8, true).FindAll(x => x.MinLevel == 1);
                 if (preEvos.Count == 0)
                     continue;
-                else evo = preEvos.LastOrDefault(x => x.Form == (form > -1 ? form : list[i].Form));
+                else evo = preEvos.LastOrDefault(x => x.Form == form);
 
                 if (evo != default)
                     criteriaList.Add(evo);

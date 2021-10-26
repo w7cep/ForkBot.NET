@@ -37,12 +37,11 @@ namespace SysBot.Pokemon
             pkm.Ball = 21;
             pkm.IVs = new int[] { 31, nickname.Contains(dittoStats[0]) ? 0 : 31, 31, nickname.Contains(dittoStats[1]) ? 0 : 31, nickname.Contains(dittoStats[2]) ? 0 : 31, 31 };
             pkm.ClearHyperTraining();
-            _ = TrashBytes(pkm, new LegalityAnalysis(pkm));
+            TrashBytes(pkm, new LegalityAnalysis(pkm));
         }
 
         public static void EggTrade<T>(T pk) where T : PKM, new()
         {
-            pk = TrashBytes(pk);
             pk.IsNicknamed = true;
             pk.Nickname = pk.Language switch
             {
@@ -55,16 +54,6 @@ namespace SysBot.Pokemon
                 9 or 10 => "蛋",
                 _ => "Egg",
             };
-
-            if (pk is PK8 pk8)
-            {
-                pk8.DynamaxLevel = 0;
-                pk8.HT_Language = 0;
-                pk8.HT_Gender = 0;
-                pk8.HT_Memory = 0;
-                pk8.HT_Feeling = 0;
-                pk8.HT_Intensity = 0;
-            }
 
             pk.IsEgg = true;
             pk.Egg_Location = 60002;
@@ -85,6 +74,18 @@ namespace SysBot.Pokemon
             pk.Markings = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
             pk.ClearRecordFlags();
             pk.ClearRelearnMoves();
+            if (pk is PK8 pk8)
+            {
+                pk8.HT_Language = 0;
+                pk8.HT_Gender = 0;
+                pk8.HT_Memory = 0;
+                pk8.HT_Feeling = 0;
+                pk8.HT_Intensity = 0;
+            }
+
+            pk = TrashBytes(pk);
+            pk.SetDynamaxLevel(0);
+
             var la = new LegalityAnalysis(pk);
             var enc = la.EncounterMatch;
             pk.CurrentFriendship = enc is EncounterStatic s ? s.EggCycles : pk.PersonalInfo.HatchCycles;
@@ -165,11 +166,23 @@ namespace SysBot.Pokemon
 
         public static T TrashBytes<T>(T pkm, LegalityAnalysis? la = null) where T : PKM, new()
         {
-            pkm.Nickname = "KOIKOIKOIKOI";
-            pkm.IsNicknamed = true;
-            if (pkm.Version != (int)GameVersion.GO && !pkm.FatefulEncounter)
-                pkm.MetDate = DateTime.Parse("2020/10/20");
-            pkm.SetDefaultNickname(la ?? new LegalityAnalysis(pkm));
+            T pkMet = (T)pkm.Clone();
+            if (pkMet.Version != (int)GameVersion.GO)
+                pkMet.MetDate = DateTime.Parse("2020/10/20");
+
+            var analysis = new LegalityAnalysis(pkMet);
+            T pkTrash = (T)pkMet.Clone();
+            if (analysis.Valid)
+            {
+                pkTrash.IsNicknamed = true;
+                pkTrash.Nickname = "KOIKOIKOIKOI";
+                pkTrash.SetDefaultNickname(la ?? new LegalityAnalysis(pkTrash));
+            }
+
+            if (new LegalityAnalysis(pkTrash).Valid)
+                pkm = pkTrash;
+            else if (analysis.Valid)
+                pkm = pkMet;
             return pkm;
         }
 
@@ -195,6 +208,7 @@ namespace SysBot.Pokemon
             }
             else return new();
 
+            mgPkm = TrashBytes((T)mgPkm);
             var la = new LegalityAnalysis(mgPkm);
             if (!la.Valid)
             {
