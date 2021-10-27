@@ -153,7 +153,7 @@ namespace SysBot.Pokemon.Discord
                 string[] sketchyCatches = { "https://i.imgur.com/BOb6IbW.png", "https://i.imgur.com/oSUQhYv.png", "https://i.imgur.com/81hlmGV.png", "https://i.imgur.com/7LBHLmf.png", "https://i.imgur.com/NEWEVtm.png" };
                 var ball = (Ball)rng.Next(2, 26);
                 var enumVals = (int[])Enum.GetValues(typeof(Gen8Dex));
-                var speciesRand = rng.Next(enumVals.Length);
+                var speciesRand = enumVals[rng.Next(enumVals.Length)];
                 var descF = $"You threw {(ball == Ball.Ultra ? "an" : "a")} {ball} Ball at a wild {(spookyRng >= 90 ? "...whatever that thing is" : SpeciesName.GetSpeciesNameGeneration(speciesRand, 2, 8))}...";
                 msg = $"{(spookyRng >= 90 ? "One wiggle... Two... It breaks free and stares at you, smiling. You run for dear life." : "...but it managed to escape!")}";
 

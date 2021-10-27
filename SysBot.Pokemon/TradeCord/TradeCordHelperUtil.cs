@@ -81,8 +81,6 @@ namespace SysBot.Pokemon
             };
         }
 
-        private PK8 TradeCordPK(int species) => (PK8)AutoLegalityWrapper.GetTrainerInfo(8).GetLegal(AutoLegalityWrapper.GetTemplate(new ShowdownSet(SpeciesName.GetSpeciesNameGeneration(species, 2, 8))), out _);
-
         public T RngRoutine(T pkm, IBattleTemplate template, Shiny shiny)
         {
             if (pkm.Species == (int)Species.Alcremie)
@@ -672,6 +670,8 @@ namespace SysBot.Pokemon
                 (int)Species.Meowth when pk.Form == 2 => evoList.Find(x => x.EvolvesInto == (int)Species.Perrserker),
                 (int)Species.Zigzagoon or (int)Species.Linoone or (int)Species.Yamask or (int)Species.Corsola or (int)Species.Diglett when pk.Form > 0 => evoList.Find(x => x.BaseForm > 0),
                 (int)Species.Darumaka => pk.Form == 1 ? evoList.Find(x => x.EvolvedForm == 2 && x.Item == (TCItems)item) : evoList.Find(x => x.EvolvedForm == 0),
+                (int)Species.Rockruff when pk.Form == 1 => evoList.Find(x => x.EvolvedForm == 2), // Dusk
+                (int)Species.Rockruff => evoList.Find(x => x.DayTime == tod),
                 _ => evoList.Find(x => x.BaseForm == pk.Form),
             };
             return result;
@@ -887,7 +887,7 @@ namespace SysBot.Pokemon
             string type = string.Empty;
             var enumVals = (int[])Enum.GetValues(typeof(Gen8Dex));
             var enumEggs = (int[])Enum.GetValues(typeof(ValidEgg));
-            var halloween = (string[])Enum.GetNames(typeof(Halloween));
+            var halloween = (int[])Enum.GetValues(typeof(Halloween));
             var eventType = $"{settings.PokeEventType}";
             mg = default;
             form = -1;
@@ -897,8 +897,7 @@ namespace SysBot.Pokemon
             {
                 if (settings.PokeEventType == PokeEventType.EventPoke)
                     mg = MysteryGiftRng(settings);
-
-                if ((int)settings.PokeEventType <= 17)
+                else if ((int)settings.PokeEventType <= 17)
                 {
                     FormOutput(Rng.SpeciesRNG, 0, out string[] forms);
                     for (int i = 0; i < forms.Length; i++)
@@ -929,11 +928,15 @@ namespace SysBot.Pokemon
                     PokeEventType.ClickbaitArticle => ClickbaitArticle.Contains(Rng.SpeciesRNG),
                     PokeEventType.EventPoke => mg != default,
                     PokeEventType.Babies => enumEggs.Contains(Rng.SpeciesRNG),
-                    PokeEventType.Halloween => halloween.Contains(SpeciesName.GetSpeciesNameGeneration(Rng.SpeciesRNG, 2, 8)),
+                    PokeEventType.Halloween => halloween.Contains(Rng.SpeciesRNG),
                     _ => type == eventType,
                 };
+
                 if (!match)
+                {
                     Rng.SpeciesRNG = enumVals[Random.Next(enumVals.Length)];
+                    form = -1;
+                }
             }
             while (!match);
         }

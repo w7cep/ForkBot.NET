@@ -543,7 +543,6 @@ namespace SysBot.Pokemon
             Results result = new();
             bool FuncMassRelease()
             {
-                Dictionary<int, TCCatch> matches;
                 input = Util.ListNameSanitize(input);
                 if (Enum.TryParse(input, out Ball ball) && ((int)ball < 0 || (int)ball > 26))
                 {
@@ -564,32 +563,34 @@ namespace SysBot.Pokemon
                 string eventSearch = "and c.is_favorite = 0 and c.was_traded = 0 and c.is_shiny = 0 and c.species != 'Ditto' and c.id != d.id1 and c.id != d.id2 and c.id != b.id and c.is_event = 1 and c.is_legendary = 0";
                 string defaultSearch = "and c.is_favorite = 0 and c.was_traded = 0 and c.is_shiny = 0 and c.species != 'Ditto' and c.id != d.id1 and c.id != d.id2 and c.id != b.id and c.is_event = 0 and c.is_legendary = 0";
 
+                Dictionary<int, TCCatch> catches;
                 if (ball != Ball.None)
-                    matches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, ballSearch, true);
+                    catches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, ballSearch, true);
                 else if (input == "Shinies")
-                    matches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, shinySearch, true);
+                    catches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, shinySearch, true);
                 else if (input == "Legendaries")
-                    matches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, legendarySearch, true);
+                    catches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, legendarySearch, true);
                 else if (input == "Events")
-                    matches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, eventSearch, true);
+                    catches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, eventSearch, true);
                 else if (input != "")
                 {
                     string speciesSearch = $"and {(speciesAndForm ? $"c.species||c.form = '{input}'" : $"c.species = '{input}' and c.form = ''")} and c.is_favorite = 0 and c.was_traded = 0 and c.is_shiny = 0 and c.id != d.id1 and c.id != d.id2 and c.id != b.id and c.ball != 'Cherish'";
-                    matches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, speciesSearch, true);
+                    catches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, speciesSearch, true);
                 }
-                else matches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, defaultSearch, true);
+                else catches = GetLookupAsClassObject<Dictionary<int, TCCatch>>(user.UserInfo.UserID, tableJoin, defaultSearch, true);
 
-                if (matches.Count() == 0)
+                if (catches.Count == 0)
                 {
                     result.Message = input == "" ? "Cannot find any more non-shiny, non-Ditto, non-favorite, non-event, non-buddy, non-legendary Pokémon to release." : "Cannot find anything that could be released with the specified criteria.";
                     return false;
                 }
 
+                var matches = catches.Values.ToList();
                 List<int> arr = new();
                 foreach (var val in matches)
                 {
-                    user.Catches.Remove(val.Key);
-                    arr.Add(val.Value.ID);
+                    user.Catches.Remove(val.ID);
+                    arr.Add(val.ID);
                 }
 
                 var names = new string[arr.Count + 1];
@@ -1125,9 +1126,14 @@ namespace SysBot.Pokemon
                     result.Message = "SpeciesBoost perk isn't active.";
                     return false;
                 }
+                else if (int.TryParse(input, out _))
+                {
+                    result.Message = "Please enter a valid species name.";
+                    return false;
+                }
 
                 input = Util.ListNameSanitize(input).Replace("'", "").Replace("-", "").Replace(" ", "").Replace(".", "");
-                if (!Enum.TryParse(input, out Gen8Dex species))
+                if (!Enum.TryParse(input, out Gen8Dex species) || (int)species >= 899 || (int)species <= 0)
                 {
                     result.Message = "Entered species was not recognized.";
                     return false;
@@ -1495,15 +1501,9 @@ namespace SysBot.Pokemon
                 else if (item == TCItems.GriseousOrb && pk.Species == (int)Species.Giratina)
                 {
                     updateBuddy = true;
+                    int index = pk.PersonalInfo.GetAbilityIndex(pk.Ability);
                     pk.Form = 1;
-                    pk.RefreshAbility(pk.AbilityNumber);
-                }
-
-                if (updateBuddy)
-                {
-                    var namesB = new string[] { "@ability", "@user_id" };
-                    var objB = new object[] { pk.Ability, user.UserInfo.UserID };
-                    result.SQLCommands.Add(DBCommandConstructor("buddy", "ability = ?", "where user_id = ?", namesB, objB, SQLTableContext.Update));
+                    pk.RefreshAbility(index);
                 }
 
                 var la = new LegalityAnalysis(pk);
@@ -1511,6 +1511,13 @@ namespace SysBot.Pokemon
                 {
                     result.Message = $"Oops, something went wrong while giving an item to {pk.Nickname}!";
                     return false;
+                }
+
+                if (updateBuddy)
+                {
+                    var namesB = new string[] { "@ability", "@user_id" };
+                    var objB = new object[] { pk.Ability, user.UserInfo.UserID };
+                    result.SQLCommands.Add(DBCommandConstructor("buddy", "ability = ?", "where user_id = ?", namesB, objB, SQLTableContext.Update));
                 }
 
                 userItem.ItemCount--;
