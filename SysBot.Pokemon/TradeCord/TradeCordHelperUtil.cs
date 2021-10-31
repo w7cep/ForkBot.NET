@@ -330,9 +330,9 @@ namespace SysBot.Pokemon
                 // Use item
                 (int)Species.Vaporeon or (int)Species.Poliwrath or (int)Species.Cloyster or (int)Species.Starmie or (int)Species.Ludicolo or (int)Species.Simipour => TCItems.WaterStone,
                 (int)Species.Jolteon or (int)Species.Raichu or (int)Species.Magnezone or (int)Species.Eelektross or (int)Species.Vikavolt => TCItems.ThunderStone,
-                (int)Species.Flareon or (int)Species.Arcanine or (int)Species.Simisear => TCItems.FireStone,
-                (int)Species.Leafeon or (int)Species.Vileplume or (int)Species.Victreebel or (int)Species.Exeggutor or (int)Species.Shiftry or (int)Species.Simisage => TCItems.LeafStone,
                 (int)Species.Ninetales or (int)Species.Sandshrew when form > 0 => TCItems.IceStone,
+                (int)Species.Flareon or (int)Species.Ninetales or (int)Species.Arcanine or (int)Species.Simisear => TCItems.FireStone,
+                (int)Species.Leafeon or (int)Species.Vileplume or (int)Species.Victreebel or (int)Species.Exeggutor or (int)Species.Shiftry or (int)Species.Simisage => TCItems.LeafStone,
                 (int)Species.Glaceon => TCItems.IceStone,
                 (int)Species.Darmanitan when form == 2 => TCItems.IceStone,
                 (int)Species.Nidoqueen or (int)Species.Nidoking or (int)Species.Clefable or (int)Species.Wigglytuff or (int)Species.Delcatty or (int)Species.Musharna => TCItems.MoonStone,
@@ -739,7 +739,7 @@ namespace SysBot.Pokemon
             var tree1 = EvolutionTree.GetEvolutionTree(pk1, 8);
             var tree2 = EvolutionTree.GetEvolutionTree(pk2, 8);
             bool sameTree = tree1.IsSpeciesDerivedFrom(pk1.Species, pk1.Form, pk2.Species, pk2.Form) || tree2.IsSpeciesDerivedFrom(pk2.Species, pk2.Form, pk1.Species, pk1.Form);
-            bool breedable = (Breeding.CanHatchAsEgg(pk1.Species) || pk1.Species == 132) && (Breeding.CanHatchAsEgg(pk2.Species) || pk2.Species == 132);
+            bool breedable = (Breeding.CanHatchAsEgg(pk1.Species, pk1.Form, (GameVersion)pk1.Version) || pk1.Species == 132) && (Breeding.CanHatchAsEgg(pk2.Species, pk2.Form, (GameVersion)pk2.Version) || pk2.Species == 132);
             if ((!sameTree && pk1.Species != 132 && pk2.Species != 132) || !breedable)
                 return false;
 
@@ -769,6 +769,9 @@ namespace SysBot.Pokemon
                     (int)Species.Sinistea or (int)Species.Polteageist or (int)Species.Rotom or (int)Species.Pikachu or (int)Species.Raichu or (int)Species.Marowak or (int)Species.Exeggutor or (int)Species.Weezing or (int)Species.Alcremie => 0,
                     _ => list[i].Form,
                 };
+
+                if (list[i].Species == (int)Species.Rotom && list[i].Form > 0)
+                    list[i].Form = 0;
 
                 EvoCriteria? evo = default;
                 var preEvos = EvolutionTree.GetEvolutionTree(8).GetValidPreEvolutions(list[i], 100, 8, true).FindAll(x => x.MinLevel == 1);
@@ -886,8 +889,6 @@ namespace SysBot.Pokemon
         {
             string type = string.Empty;
             var enumVals = (int[])Enum.GetValues(typeof(Gen8Dex));
-            var enumEggs = (int[])Enum.GetValues(typeof(ValidEgg));
-            var halloween = (int[])Enum.GetValues(typeof(Halloween));
             var eventType = $"{settings.PokeEventType}";
             mg = default;
             form = -1;
@@ -924,11 +925,13 @@ namespace SysBot.Pokemon
                 match = settings.PokeEventType switch
                 {
                     PokeEventType.Legends => Enum.IsDefined(typeof(Legends), Rng.SpeciesRNG),
+                    PokeEventType.Babies => Enum.IsDefined(typeof(ValidEgg), Rng.SpeciesRNG),
+                    PokeEventType.Halloween => Enum.IsDefined(typeof(Halloween), Rng.SpeciesRNG),
+                    PokeEventType.CottonCandy => Enum.IsDefined(typeof(CottonCandy), Rng.SpeciesRNG),
+                    PokeEventType.PokePets => Enum.IsDefined(typeof(PokePets), Rng.SpeciesRNG),
                     PokeEventType.RodentLite => RodentLite.Contains(Rng.SpeciesRNG),
                     PokeEventType.ClickbaitArticle => ClickbaitArticle.Contains(Rng.SpeciesRNG),
                     PokeEventType.EventPoke => mg != default,
-                    PokeEventType.Babies => enumEggs.Contains(Rng.SpeciesRNG),
-                    PokeEventType.Halloween => halloween.Contains(Rng.SpeciesRNG),
                     _ => type == eventType,
                 };
 

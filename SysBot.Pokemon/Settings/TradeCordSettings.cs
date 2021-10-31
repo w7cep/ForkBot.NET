@@ -82,5 +82,7 @@ namespace SysBot.Pokemon
         ClickbaitArticle = 21,
         Babies = 22,
         Halloween = 23,
+        CottonCandy = 24,
+        PokePets = 25,
     }
 }
